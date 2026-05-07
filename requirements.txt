@@ -25,7 +25,7 @@ pyinstaller
 nuitka
 pyarmor
 
-# Android/APK only (uncomment on Linux)
+# Android/APK only (uncomment on Linux or WSL)
 # pyjnius
 # buildozer
 # kivy

